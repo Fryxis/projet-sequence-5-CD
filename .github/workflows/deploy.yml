@@ -1,9 +1,11 @@
 name: Provision & Déploiement API
-
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:   # Lancement manuel uniquement
+
+#on:
+#  push:
+#    branches:
+#      - main
 
 jobs:
   terraform:

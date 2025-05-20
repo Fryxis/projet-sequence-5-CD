@@ -1,40 +1,35 @@
 name: Release
 
 on:
-  workflow_dispatch:   # Déclenchement manuel via GitHub Actions
+  workflow_dispatch:   # Lancement manuel uniquement
   push:
     branches:
-      - main
+      - main           # Ou déclenchement auto si tu veux
 
 jobs:
   release:
-    name: Release via release.sh
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Cloner le dépôt
         uses: actions/checkout@v3
 
-      - name: Install Node.js
+      - name: 🛠 Installer Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 18
+          node-version: 22
           cache: npm
 
-      - name: Install dependencies
+      - name: Installer les dépendances
         run: npm ci
 
-      - name: Set up Git identity
+      - name: Configurer Git
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Authenticate GitHub CLI
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: echo "auth OK"
-
-      - name: Run release.sh with standard-version
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Lancer le script release.sh avec standard-version
         run: bash release.sh standard-version
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
