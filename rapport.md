@@ -75,7 +75,7 @@ Le pipeline CI/CD s’appuie sur la gestion Git et un outil d’intégration con
 ### Exemple de fichier pipeline (à adapter selon l’outil utilisé)
 
 ```yaml
-name: CI/CD Pipeline
+name: Provision & Déploiement API
 
 on:
   push:
@@ -83,36 +83,71 @@ on:
       - main
 
 jobs:
-  build-deploy:
+  terraform:
+    name: Provisionner l'infra GCP
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v3
-      
-      - name: Build API
-        run: |
-          cd api
-          ./build.sh
+      - name: Cloner le dépôt
+        uses: actions/checkout@v3
 
-      - name: Build Docker image
-        run: |
-          docker build -t myrepo/api:latest ./api
+      - name: Installer Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.6.6
 
-      - name: Push Docker image
+      - name: Créer credentials.json depuis le secret base64
         run: |
-          docker push myrepo/api:latest
+          echo "${{ secrets.GCP_CREDENTIALS }}" | base64 -d > ${{ github.workspace }}/infra/credentials.json
 
-      - name: Terraform Apply
+      - name: Plan Terraform
+        working-directory: infra
         run: |
-          cd infra
           terraform init
-          terraform apply -auto-approve
+          terraform plan \
+            -var="gcp_credentials=${{ github.workspace }}/infra/credentials.json" \
+            -var="ssh_public_key=${{ secrets.SSH_PUBLIC_KEY }}" \
+            -var-file="terraform.tfvars"
 
-      - name: Ansible Deploy
+      - name: Appliquer Terraform
+        working-directory: infra
         run: |
-          ansible-playbook ansible/deploy-api.yml -i ansible/inventory
-```
+          terraform apply -auto-approve \
+            -var="gcp_credentials=${{ github.workspace }}/infra/credentials.json" \
+            -var="ssh_public_key=${{ secrets.SSH_PUBLIC_KEY }}" \
+            -var-file="terraform.tfvars"
 
----
+      - name: Générer inventory.ini pour Ansible
+        working-directory: infra
+        run: |
+          IP=$(terraform output -raw vm_external_ip)
+          echo "[api]" > ../ansible/inventory.ini
+          echo "$IP ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/id_rsa" >> ../ansible/inventory.ini
+
+  ansible:
+    name: Déployer l'API avec Ansible
+    runs-on: ubuntu-latest
+    needs: terraform
+
+    steps:
+      - name: Cloner le dépôt
+        uses: actions/checkout@v3
+
+      - name: Installer Ansible et SSH client
+        run: |
+          sudo apt update
+          sudo apt install -y ansible openssh-client
+
+      - name: Ajouter la clé SSH privée
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.ANSIBLE_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+      - name: Exécuter le playbook Ansible
+        run: |
+          ansible-playbook -i ansible/inventory.ini ansible/deploy.yml --ssh-extra-args="-o StrictHostKeyChecking=no"
+```
 
 ## 5. Logs et captures d’écran
 
