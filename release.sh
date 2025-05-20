@@ -17,24 +17,34 @@ if [ -z "$TOOL" ]; then
   esac
 fi
 
+# Configure Git si GH_PAT est disponible
+if [ -n "$GH_PAT" ]; then
+  echo "Configuration de Git avec GH_PAT..."
+  git config --global user.name "github-actions[bot]"
+  git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+  # Remplacer l'URL remote par une URL authentifiée avec token
+  git remote set-url origin "https://x-access-token:$GH_PAT@github.com/${GITHUB_REPOSITORY}.git"
+fi
+
 # Fonction release avec standard-version
 release_with_standard_version() {
   echo "🔧 Incrémentation de version (standard-version)..."
   npx standard-version --release-as minor --changelog
 
   VERSION=$(jq -r '.version' package.json)
-  echo "📦 Nouvelle version : v$VERSION"
+  echo "Nouvelle version : v$VERSION"
 
-  echo "🏷️ Création du tag git..."
+  echo "Push des tags et commits..."
   git push --follow-tags origin main
 
-  echo "🚀 Création de la release GitHub..."
+  echo "Création de la release GitHub..."
   gh release create "v$VERSION" -F CHANGELOG.md --title "Release v$VERSION"
 }
 
 # Fonction release avec semantic-release
 release_with_semantic_release() {
-  echo "🧪 Simulation de release avec semantic-release"
+  echo "Simulation de release avec semantic-release"
   npx semantic-release
 }
 
