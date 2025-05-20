@@ -16,3 +16,6 @@
 
 #### Statut du workflow de release :
 ![workflow](https://github.com/Projet-CI-CD/API/actions/workflows/release.yml/badge.svg)
+
+#### Statut du workflow de deploy :
+![workflow](https://github.com/Projet-CI-CD/API/actions/workflows/deploy.yml/badge.svg)
